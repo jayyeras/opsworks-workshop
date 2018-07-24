@@ -7,7 +7,9 @@ def launch_server():
     
     iam = boto3.client('iam')
     
+    #
     # Create the EC2 instance role
+    # 
     role = {}
     role['Version'] = '2012-10-17'
     statements = []
@@ -26,7 +28,6 @@ def launch_server():
     statements.append({'Effect': 'Allow', 'Action': ['opsworks-cm:DisassociateNode','opsworks-cm:DescribeNodeAssociationStatus','opsworks-cm:AssociateNode'], 'Resource': '*'})
     policy['Statement'] = statements
     finalpolicy = json.dumps(policy, indent=2)
-    print(finalpolicy)
     
     instance_policy = iam.create_policy(
         PolicyName = 'aws-opsworks-cm-devday-ec2-policy',
@@ -34,7 +35,6 @@ def launch_server():
     )
     
     policyarn = instance_policy['Policy']['Arn']
-    print(policyarn)
     
     iam.attach_role_policy(
         RoleName = 'aws-opsworks-cm-devday-ec2-role',
@@ -59,8 +59,9 @@ def launch_server():
         RoleName = 'aws-opsworks-cm-devday-ec2-role'
     )
     
-    #Create service role
-    
+    #
+    # Create the OpsWorks service role
+    #
     role = {}
     role['Version'] = '2012-10-17'
     statements = []
@@ -79,6 +80,9 @@ def launch_server():
         PolicyArn = 'arn:aws:iam::aws:policy/service-role/AWSOpsWorksCMServiceRole'
     )
     
+    #
+    # Create the OpsWorks server
+    #
     opsworks_client = boto3.client('opsworkscm', 'us-east-1')
     opsworks_response = opsworks_client.create_server(
         AssociatePublicIpAddress = True,
@@ -87,7 +91,7 @@ def launch_server():
         EngineModel = 'Single',
         EngineVersion = '12',
         BackupRetentionCount = 10,
-        ServerName = 'DevDay-OpsWorks-CM01',
+        ServerName = 'DevDay-OpsWorks-Server',
         InstanceProfileArn = profilearn,
         InstanceType = 'm4.large',
         PreferredMaintenanceWindow = 'Sun:09:00',
@@ -95,11 +99,11 @@ def launch_server():
         ServiceRoleArn = servicearn
     )
     
-    print(opsworks_response['Server']['Endpoint'])
-    
     for x in opsworks_response['Server']['EngineAttributes']:
         if x['Name'] == 'CHEF_DELIVERY_ADMIN_PASSWORD':
-            print('Admin password: ' + x['Value'])
+            with open("chef-server-admin.txt", "wb") as ch:
+                f.write("Endpoint:   " + opsworks_response['Server']['Endpoint'])
+                f.write("Password:   " + x['Value'])
         if x['Name'] == 'CHEF_STARTER_KIT':
             with open("starter_kit.zip", "wb") as f:
                 f.write(base64.b64decode(x['Value']))
